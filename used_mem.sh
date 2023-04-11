@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# htop version, 305 or latest
+htop_version="305"
+
 # load values (meminfo)
 # https://github.com/htop-dev/htop/blob/c878343784f23d7cb18ccec6aa034f01aee8069e/linux/LinuxProcessList.c
 availableMem=$(cat /proc/meminfo | grep ^MemAvailable: | grep -Eo '[0-9]+')
@@ -24,39 +27,37 @@ zfs_min=$(awk '/^c_min/ { print sprintf("%i", $3 / 1024) }' < /proc/spl/kstat/zf
 #echo c_min $zfs_min
 #echo zfs $zfs_size
 
+if [ $htop_version = "latest" ]; then
+	# calculate used ram according to current version of htop (can't validate this version)
+	# meminfo
+	# https://github.com/htop-dev/htop/blob/c878343784f23d7cb18ccec6aa034f01aee8069e/linux/LinuxProcessList.c
+	usedDiff=$(($freeMem + $cachedMem + $sreclaimableMem + $buffersMem))
+	#echo usedDiff $usedDiff
+	if [ $totalMem -ge $usedDiff ]; then
+		usedMem=$(($totalMem - $usedDiff))
+	else
+		usedMem=$(($totalMem - $freeMem))
+	fi
 
-# calculate used ram according to current version of htop (can't validate this version)
-# meminfo
-# https://github.com/htop-dev/htop/blob/c878343784f23d7cb18ccec6aa034f01aee8069e/linux/LinuxProcessList.c
-usedDiff=$(($freeMem + $cachedMem + $sreclaimableMem + $buffersMem))
-#echo usedDiff $usedDiff
-if [ $totalMem -ge $usedDiff ]; then
-	usedMem=$(($totalMem - $usedDiff))
+	# zfs
+	# https://github.com/htop-dev/htop/blob/c878343784f23d7cb18ccec6aa034f01aee8069e/linux/Platform.c
+	if [ $zfs_size -gt $zfs_min ]; then
+		usedMem=$(($usedMem - ($zfs_size - $zfs_min)))
+	else
+		usedMem=$usedMem
+	fi
 else
+	echo v305
+	# calculate according to htop version 3.0.5 (values are matching my installed htop version)
+	# https://github.com/htop-dev/htop/blob/ce6d60e7def146c13d0b8bca4642e7401a0a8995/linux/LinuxProcessList.c
 	usedMem=$(($totalMem - $freeMem))
+	cachedMem=$(($cachedMem + $sreclaimableMem - $sharedMem))
+	# https://github.com/htop-dev/htop/blob/ce6d60e7def146c13d0b8bca4642e7401a0a8995/linux/Platform.c
+	usedMem=$(($usedMem - ($buffersMem + $cachedMem)))
+	usedMem=$(($usedMem - $zfs_size))
 fi
-
-# zfs
-# https://github.com/htop-dev/htop/blob/c878343784f23d7cb18ccec6aa034f01aee8069e/linux/Platform.c
-if [ $zfs_size -gt $zfs_min ]; then
-	usedMem=$(($usedMem - ($zfs_size - $zfs_min)))
-else
-	usedMem=$usedMem
-fi
-
-
-# calculate according to htop version 3.0.5 (values are matching my installed htop version)
-# https://github.com/htop-dev/htop/blob/ce6d60e7def146c13d0b8bca4642e7401a0a8995/linux/LinuxProcessList.c
-usedMem_305=$(($totalMem - $freeMem))
-cachedMem_305=$(($cachedMem + $sreclaimable - $sharedMem))
-# https://github.com/htop-dev/htop/blob/ce6d60e7def146c13d0b8bca4642e7401a0a8995/linux/Platform.c
-usedMem_305=$(($usedMem_305 - ($buffersMem + $cachedMem_305)))
-#echo used $usedMem_305
-usedMem_305=$(($usedMem_305 - $zfs_size))
-
 
 
 
 # generate output
-echo $(echo "scale=3; $usedMem_305 / 1024 / 1024" | bc -l)GB
 echo $(echo "scale=3; $usedMem / 1024 / 1024" | bc -l)GB
