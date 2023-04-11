@@ -47,7 +47,6 @@ if [ $htop_version = "latest" ]; then
 		usedMem=$usedMem
 	fi
 else
-	echo v305
 	# calculate according to htop version 3.0.5 (values are matching my installed htop version)
 	# https://github.com/htop-dev/htop/blob/ce6d60e7def146c13d0b8bca4642e7401a0a8995/linux/LinuxProcessList.c
 	usedMem=$(($totalMem - $freeMem))
@@ -60,4 +59,5 @@ fi
 
 
 # generate output
-echo $(echo "scale=3; $usedMem / 1024 / 1024" | bc -l)GB
+#echo $(echo "scale=3; $usedMem / 1024 / 1024" | bc -l)GB
+echo $(($usedMem /1024))
